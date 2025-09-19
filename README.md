@@ -50,7 +50,7 @@ By default, when you first run the script, the model will be downloaded automati
 - Download VoxCPM-0.5B
     ```
     from huggingface_hub import snapshot_download
-    snapshot_download("openbmb/VoxCPM-0.5B",local_files_only=local_files_only)
+    snapshot_download("openbmb/VoxCPM-0.5B")
     ```
 - Download ZipEnhancer and SenseVoice-Small. We use ZipEnhancer to enhance speech prompts and SenseVoice-Small for speech prompt ASR in the web demo.
     ```
@@ -95,6 +95,13 @@ voxcpm --text "VoxCPM is an innovative end-to-end TTS model from ModelBest, desi
 voxcpm --text "VoxCPM is an innovative end-to-end TTS model from ModelBest, designed to generate highly expressive speech." \
   --prompt-audio path/to/voice.wav \
   --prompt-text "reference transcript" \
+  --output out.wav \
+  --denoise
+
+# (Optinal) Voice cloning (reference audio + transcript file)
+voxcpm --text "VoxCPM is an innovative end-to-end TTS model from ModelBest, designed to generate highly expressive speech." \
+  --prompt-audio path/to/voice.wav \
+  --prompt-file "/path/to/text-file" \
   --output out.wav \
   --denoise
 
