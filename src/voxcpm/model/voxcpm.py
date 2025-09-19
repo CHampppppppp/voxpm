@@ -160,8 +160,8 @@ class VoxCPMModel(nn.Module):
             self.feat_encoder_step = torch.compile(self.feat_encoder, mode="reduce-overhead", fullgraph=True)
             self.feat_decoder.estimator = torch.compile(self.feat_decoder.estimator, mode="reduce-overhead", fullgraph=True)
         except Exception as e:
-            print(e)
-            print("VoxCPMModel can not be optimized by torch.compile, using original forward_step functions")
+            print(f"Error: {e}")
+            print("Warning: VoxCPMModel can not be optimized by torch.compile, using original forward_step functions")
             self.base_lm.forward_step = self.base_lm.forward_step
             self.residual_lm.forward_step = self.residual_lm.forward_step
             self.feat_encoder_step = self.feat_encoder
@@ -283,8 +283,11 @@ class VoxCPMModel(nn.Module):
                 else:
                     break
             else:
-                break
-        return self.audio_vae.decode(latent_pred.to(torch.float32)).squeeze(1).cpu()
+                break   
+                
+        decode_audio = self.audio_vae.decode(latent_pred.to(torch.float32)).squeeze(1).cpu()  
+        decode_audio = decode_audio[..., 640:-640] # trick: trim the start and end of the audio
+        return decode_audio        
     
     @torch.inference_mode()
     def build_prompt_cache(
@@ -468,7 +471,8 @@ class VoxCPMModel(nn.Module):
             else:
                 break
         decode_audio = self.audio_vae.decode(latent_pred.to(torch.float32)).squeeze(1).cpu()
-            
+        decode_audio = decode_audio[..., 640:-640] # trick: trim the start and end of the audio
+
         return (
             decode_audio,
             target_text_token,
@@ -580,7 +584,6 @@ class VoxCPMModel(nn.Module):
         pred_feat_seq = torch.cat(pred_feat_seq, dim=1)  # b, t, p, d
 
         feat_pred = rearrange(pred_feat_seq, "b t p d -> b d (t p)", b=B, p=self.patch_size)
-        feat_pred = feat_pred[..., 1:-1] # trick: remove the first and last token
         return feat_pred, pred_feat_seq.squeeze(0).cpu()
 
     @classmethod

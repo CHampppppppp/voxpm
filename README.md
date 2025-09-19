@@ -39,11 +39,6 @@ Unlike mainstream approaches that convert speech to discrete tokens, VoxCPM uses
 
 
 
-
-
-
-
-
 ##  Quick Start
 
 ### 🔧 Install from PyPI
@@ -55,7 +50,7 @@ By default, when you first run the script, the model will be downloaded automati
 - Download VoxCPM-0.5B
     ```
     from huggingface_hub import snapshot_download
-    snapshot_download("openbmb/VoxCPM-0.5B",local_files_only=local_files_only)
+    snapshot_download("openbmb/VoxCPM-0.5B")
     ```
 - Download ZipEnhancer and SenseVoice-Small. We use ZipEnhancer to enhance speech prompts and SenseVoice-Small for speech prompt ASR in the web demo.
     ```
@@ -100,6 +95,13 @@ voxcpm --text "VoxCPM is an innovative end-to-end TTS model from ModelBest, desi
 voxcpm --text "VoxCPM is an innovative end-to-end TTS model from ModelBest, designed to generate highly expressive speech." \
   --prompt-audio path/to/voice.wav \
   --prompt-text "reference transcript" \
+  --output out.wav \
+  --denoise
+
+# (Optinal) Voice cloning (reference audio + transcript file)
+voxcpm --text "VoxCPM is an innovative end-to-end TTS model from ModelBest, designed to generate highly expressive speech." \
+  --prompt-audio path/to/voice.wav \
+  --prompt-file "/path/to/text-file" \
   --output out.wav \
   --denoise
 
@@ -245,6 +247,13 @@ VoxCPM achieves competitive results on public zero-shot TTS benchmarks:
 
 
 
+## 📝TO-DO List
+Please stay tuned for updates!
+- [ ] Release the VoxCPM technical report.
+- [ ] Support higher sampling rate (next version).
+
+
+
 ## 📄 License
 The VoxCPM model weights and code are open-sourced under the [Apache-2.0](LICENSE) license.
 
@@ -265,6 +274,8 @@ This project is developed by the following institutions:
 - <img src="assets/thuhcsi_logo.png" width="28px"> [THUHCSI](https://github.com/thuhcsi)
 
 
+## ⭐ Star History
+ [![Star History Chart](https://api.star-history.com/svg?repos=OpenBMB/VoxCPM&type=Date)](https://star-history.com/#OpenBMB/VoxCPM&Date)
 
 
 ## 📚 Citation
