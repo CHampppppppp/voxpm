@@ -1,7 +1,7 @@
 ## 🎙️ VoxCPM: Tokenizer-Free TTS for Context-Aware Speech Generation and True-to-Life Voice Cloning
 
 
-[![Project Page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://github.com/OpenBMB/VoxCPM/) [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-OpenBMB-yellow)](https://huggingface.co/openbmb/VoxCPM-0.5B) [![ModelScope](https://img.shields.io/badge/ModelScope-OpenBMB-purple)](https://modelscope.cn/models/OpenBMB/VoxCPM-0.5B)  [![Live Playground](https://img.shields.io/badge/Live%20PlayGround-Demo-orange)](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) [![Samples](https://img.shields.io/badge/Page-Samples-red)](https://openbmb.github.io/VoxCPM-demopage)
+[![Project Page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://github.com/OpenBMB/VoxCPM/) [![Technical Report](https://img.shields.io/badge/Technical%20Report-Arxiv-red)](https://arxiv.org/abs/2509.24650) [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-OpenBMB-yellow)](https://huggingface.co/openbmb/VoxCPM-0.5B) [![ModelScope](https://img.shields.io/badge/ModelScope-OpenBMB-purple)](https://modelscope.cn/models/OpenBMB/VoxCPM-0.5B)  [![Live Playground](https://img.shields.io/badge/Live%20PlayGround-Demo-orange)](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) [![Samples](https://img.shields.io/badge/Audio%20Samples-Page-green)](https://openbmb.github.io/VoxCPM-demopage)
 
 
 
@@ -16,6 +16,7 @@
 </div>
 
 ## News 
+* [2025.09.30] 🔥 🔥 🔥  We Release VoxCPM [Technical Report](https://arxiv.org/abs/2509.24650)!
 * [2025.09.16] 🔥 🔥 🔥  We Open Source the VoxCPM-0.5B [weights](https://huggingface.co/openbmb/VoxCPM-0.5B)!
 * [2025.09.16] 🎉 🎉 🎉  We Provide the [Gradio PlayGround](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) for VoxCPM-0.5B, try it now! 
 
@@ -195,6 +196,19 @@ Happy creating! 🎉 Start with the default settings and tweak from there to sui
 ---
 
 
+## 🌟 Community Projects
+
+We're excited to see the VoxCPM community growing! Here are some amazing projects and features built by our community:
+
+- **[ComfyUI-VoxCPM](https://github.com/wildminder/ComfyUI-VoxCPM)**
+- **[ComfyUI-VoxCPMTTS](https://github.com/1038lab/ComfyUI-VoxCPMTTS)** 
+- **[WebUI-VoxCPM](https://github.com/rsxdalv/tts_webui_extension.vox_cpm)**
+- **[PR: Streaming API Support (by AbrahamSanders)](https://github.com/OpenBMB/VoxCPM/pull/26)** 
+
+
+
+*Have you built something cool with VoxCPM? We'd love to feature it here! Please open an issue or pull request to add your project.*
+
 
 ## 📊 Performance Highlights
 
@@ -263,7 +277,7 @@ VoxCPM achieves competitive results on public zero-shot TTS benchmarks:
 
 ## 📝TO-DO List
 Please stay tuned for updates!
-- [ ] Release the VoxCPM technical report.
+- [x] Release the VoxCPM technical report.
 - [ ] Support higher sampling rate (next version).
 
 
@@ -294,16 +308,13 @@ This project is developed by the following institutions:
 
 ## 📚 Citation
 
-The techical report is coming soon, please wait for the release 😊
-
 If you find our model helpful, please consider citing our projects 📝 and staring us ⭐️！
 
 ```bib
-@misc{voxcpm2025,
-  author       = {{Yixuan Zhou, Guoyang Zeng, Xin Liu, Xiang Li, Renjie Yu, Ziyang Wang, Runchuan Ye, Weiyue Sun, Jiancheng Gui, Kehan Li, Zhiyong Wu, Zhiyuan Liu}},
-  title        = {{VoxCPM}},
+@article{voxcpm2025,
+  title        = {VoxCPM: Tokenizer-Free TTS for Context-Aware Speech Generation and True-to-Life Voice Cloning},
+  author       = {Zhou, Yixuan and Zeng, Guoyang and Liu, Xin and Li, Xiang and Yu, Renjie and Wang, Ziyang and Ye, Runchuan and Sun, Weiyue and Gui, Jiancheng and Li, Kehan and Wu, Zhiyong  and Liu, Zhiyuan},
+  journal      = {arXiv preprint arXiv:2509.24650},
   year         = {2025},
-  publish = {\url{https://github.com/OpenBMB/VoxCPM}},
-  note         = {GitHub repository}
 }
 ```
