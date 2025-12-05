@@ -105,7 +105,8 @@ class VoxCPM:
             prompt_text : str = None,
             cfg_value : float = 2.0,    
             inference_timesteps : int = 10,
-            max_length : int = 4096,
+            min_len : int = 2,
+            max_len : int = 4096,
             normalize : bool = True,
             denoise : bool = True,
             retry_badcase : bool = True,
@@ -127,7 +128,7 @@ class VoxCPM:
             prompt_text: Text content corresponding to the prompt audio.
             cfg_value: Guidance scale for the generation model.
             inference_timesteps: Number of inference steps.
-            max_length: Maximum token length during generation.
+            max_len: Maximum token length during generation.
             normalize: Whether to run text normalization before generation.
             denoise: Whether to denoise the prompt audio if a denoiser is
                 available.
@@ -177,8 +178,8 @@ class VoxCPM:
             generate_result = self.tts_model._generate_with_prompt_cache(
                             target_text=text,
                             prompt_cache=fixed_prompt_cache,
-                            min_len=2,
-                            max_len=max_length,
+                            min_len=min_len,
+                            max_len=max_len,
                             inference_timesteps=inference_timesteps,
                             cfg_value=cfg_value,
                             retry_badcase=retry_badcase,
