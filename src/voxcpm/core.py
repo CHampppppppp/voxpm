@@ -45,6 +45,7 @@ class VoxCPM:
             zipenhancer_model_id: str = "iic/speech_zipenhancer_ans_multiloss_16k_base",
             cache_dir: str = None,
             local_files_only: bool = False,
+            optimize: bool = True,
             **kwargs,
         ):
         """Instantiate ``VoxCPM`` from a Hugging Face Hub snapshot.
@@ -52,6 +53,7 @@ class VoxCPM:
         Args:
             hf_model_id: Explicit Hugging Face repository id (e.g. "org/repo") or local path.
             load_denoiser: Whether to initialize the denoiser pipeline.
+            optimize: Whether to optimize the model with torch.compile. True by default, but can be disabled for debugging.
             zipenhancer_model_id: Denoiser model id or path for ModelScope
                 acoustic noise suppression.
             cache_dir: Custom cache directory for the snapshot.
@@ -87,6 +89,7 @@ class VoxCPM:
             voxcpm_model_path=local_path,
             zipenhancer_model_path=zipenhancer_model_id if load_denoiser else None,
             enable_denoiser=load_denoiser,
+            optimize=optimize,
             **kwargs,
         )
 

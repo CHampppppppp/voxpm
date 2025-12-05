@@ -1,7 +1,11 @@
 ## 🎙️ VoxCPM: Tokenizer-Free TTS for Context-Aware Speech Generation and True-to-Life Voice Cloning
 
 
-[![Project Page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://github.com/OpenBMB/VoxCPM/) [![Technical Report](https://img.shields.io/badge/Technical%20Report-Arxiv-red)](https://arxiv.org/abs/2509.24650) [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-OpenBMB-yellow)](https://huggingface.co/openbmb/VoxCPM-0.5B) [![ModelScope](https://img.shields.io/badge/ModelScope-OpenBMB-purple)](https://modelscope.cn/models/OpenBMB/VoxCPM-0.5B)  [![Live Playground](https://img.shields.io/badge/Live%20PlayGround-Demo-orange)](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) [![Samples](https://img.shields.io/badge/Audio%20Samples-Page-green)](https://openbmb.github.io/VoxCPM-demopage)
+[![Project Page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://github.com/OpenBMB/VoxCPM/) [![Technical Report](https://img.shields.io/badge/Technical%20Report-Arxiv-red)](https://arxiv.org/abs/2509.24650)[![Live Playground](https://img.shields.io/badge/Live%20PlayGround-Demo-orange)](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) [![Samples](https://img.shields.io/badge/Audio%20Samples-Page-green)](https://openbmb.github.io/VoxCPM-demopage)
+
+#### VoxCPM1.5 Model Weights
+
+ [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-OpenBMB-yellow)](https://huggingface.co/openbmb/VoxCPM1.5) [![ModelScope](https://img.shields.io/badge/ModelScope-OpenBMB-purple)](https://modelscope.cn/models/OpenBMB/VoxCPM1.5)  
 
 
 
@@ -16,6 +20,7 @@
 </div>
 
 ## News 
+* [2025.12.05] 🎉 🎉 🎉  We Open Source the VoxCPM1.5 [weights](https://huggingface.co/openbmb/VoxCPM1.5)! The model now supports both full-parameter fine-tuning and efficient LoRA fine-tuning, empowering you to create your own tailored version. See [Release Notes](docs/release_note.md) for details.
 * [2025.09.30] 🔥 🔥 🔥  We Release VoxCPM [Technical Report](https://arxiv.org/abs/2509.24650)!
 * [2025.09.16] 🔥 🔥 🔥  We Open Source the VoxCPM-0.5B [weights](https://huggingface.co/openbmb/VoxCPM-0.5B)!
 * [2025.09.16] 🎉 🎉 🎉  We Provide the [Gradio PlayGround](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) for VoxCPM-0.5B, try it now! 
@@ -33,10 +38,22 @@ Unlike mainstream approaches that convert speech to discrete tokens, VoxCPM uses
 
 ###  🚀 Key Features
 - **Context-Aware, Expressive Speech Generation** - VoxCPM comprehends text to infer and generate appropriate prosody, delivering speech with remarkable expressiveness and natural flow. It spontaneously adapts speaking style based on content, producing highly fitting vocal expression trained on a massive 1.8 million-hour bilingual corpus.
-- **True-to-Life Voice Cloning** - With only a short reference audio clip, VoxCPM performs accurate zero-shot voice cloning, capturing not only the speaker’s timbre but also fine-grained characteristics such as accent, emotional tone, rhythm, and pacing to create a faithful and natural replica.
+- **True-to-Life Voice Cloning** - With only a short reference audio clip, VoxCPM performs accurate zero-shot voice cloning, capturing not only the speaker's timbre but also fine-grained characteristics such as accent, emotional tone, rhythm, and pacing to create a faithful and natural replica.
 - **High-Efficiency Synthesis** - VoxCPM supports streaming synthesis with a Real-Time Factor (RTF) as low as 0.17 on a consumer-grade NVIDIA RTX 4090 GPU, making it possible for real-time applications.
 
+### 📦 Model Versions
+See [Release Notes](docs/release_note.md) for details
+- **VoxCPM1.5** (Latest): 
+  - Model Params: 750M
+  - Sampling rate of AudioVAE: 44100
+  - Token rate in LM Backbone: 6.25Hz (patch-size=4)
+  - RTF in a single NVIDIA-RTX 4090 GPU: ~0.15
 
+- **VoxCPM-0.5B** (Original):
+  - Model Params: 600M
+  - Sampling rate of AudioVAE: 16000
+  - Token rate in LM Backbone: 12.5Hz (patch-size=2)
+  - RTF in a single NVIDIA-RTX 4090 GPU: 0.17
 
 
 
@@ -48,7 +65,13 @@ pip install voxcpm
 ```
 ### 1.  Model Download (Optional)
 By default, when you first run the script, the model will be downloaded automatically, but you can also download the model in advance.
-- Download VoxCPM-0.5B
+- Download VoxCPM1.5
+    ```
+    from huggingface_hub import snapshot_download
+    snapshot_download("openbmb/VoxCPM1.5")
+    ```
+
+- Or Download VoxCPM-0.5B
     ```
     from huggingface_hub import snapshot_download
     snapshot_download("openbmb/VoxCPM-0.5B")
@@ -66,7 +89,7 @@ import soundfile as sf
 import numpy as np
 from voxcpm import VoxCPM
 
-model = VoxCPM.from_pretrained("openbmb/VoxCPM-0.5B")
+model = VoxCPM.from_pretrained("openbmb/VoxCPM1.5")
 
 # Non-streaming
 wav = model.generate(
@@ -75,14 +98,14 @@ wav = model.generate(
     prompt_text=None,          # optional: reference text
     cfg_value=2.0,             # LM guidance on LocDiT, higher for better adherence to the prompt, but maybe worse
     inference_timesteps=10,   # LocDiT inference timesteps, higher for better result, lower for fast speed
-    normalize=True,           # enable external TN tool
-    denoise=True,             # enable external Denoise tool
+    normalize=True,           # enable external TN tool, but will disable native raw text support
+    denoise=True,             # enable external Denoise tool, but it may cause some distortion and restrict the sampling rate to 16kHz
     retry_badcase=True,        # enable retrying mode for some bad cases (unstoppable)
     retry_badcase_max_times=3,  # maximum retrying times
     retry_badcase_ratio_threshold=6.0, # maximum length restriction for bad case detection (simple but effective), it could be adjusted for slow pace speech
 )
 
-sf.write("output.wav", wav, 16000)
+sf.write("output.wav", wav, model.tts_model.sample_rate)
 print("saved: output.wav")
 
 # Streaming
@@ -94,7 +117,7 @@ for chunk in model.generate_streaming(
     chunks.append(chunk)
 wav = np.concatenate(chunks)
 
-sf.write("output_streaming.wav", wav, 16000)
+sf.write("output_streaming.wav", wav, model.tts_model.sample_rate)
 print("saved: output_streaming.wav")
 ```
 
@@ -137,7 +160,7 @@ voxcpm --text "..." --output out.wav \
 voxcpm --text "..." --output out.wav --model-path /path/to/VoxCPM_model_dir
 # Or from Hugging Face (auto download/cache)
 voxcpm --text "..." --output out.wav \
-  --hf-model-id openbmb/VoxCPM-0.5B --cache-dir ~/.cache/huggingface --local-files-only
+  --hf-model-id openbmb/VoxCPM1.5 --cache-dir ~/.cache/huggingface --local-files-only
 
 # 6) Denoiser control
 voxcpm --text "..." --output out.wav \
@@ -152,117 +175,51 @@ python -m voxcpm.cli --help
 
 You can start the UI interface by running `python app.py`, which allows you to perform Voice Cloning and Voice Creation.
 
+### 5. Fine-tuning
 
+VoxCPM1.5 supports both full fine-tuning (SFT) and LoRA fine-tuning, allowing you to train personalized voice models on your own data. See the [Fine-tuning Guide](docs/finetune.md) for detailed instructions.
 
-## 👩‍🍳 A Voice Chef's Guide
-Welcome to the VoxCPM kitchen! Follow this recipe to cook up perfect generated speech. Let’s begin.
+**Quick Start:**
+```bash
+# Full fine-tuning
+python scripts/train_voxcpm_finetune.py \
+    --config_path conf/voxcpm_v1.5/voxcpm_finetune_all.yaml
 
----
-### 🥚 Step 1: Prepare Your Base Ingredients (Content)
+# LoRA fine-tuning
+python scripts/train_voxcpm_finetune.py \
+    --config_path conf/voxcpm_v1.5/voxcpm_finetune_lora.yaml
+```
 
-First, choose how you’d like to input your text:.
-1. Regular Text (Classic Mode)
-- ✅ Keep "Text Normalization" ON. Type naturally (e.g., "Hello, world! 123"). The system will automatically process numbers, abbreviations, and punctuation using WeTextProcessing library.
-2. Phoneme Input (Native Mode)
-- ❌ Turn "Text Normalization" OFF. Enter phoneme text like {HH AH0 L OW1} (EN) or {ni3}{hao3} (ZH) for precise pronunciation  control. In this mode, VoxCPM also supports native understanding of other complex non-normalized text—try it out!
+## 📚 Documentation
 
----
-### 🍳 Step 2: Choose Your Flavor Profile (Voice Style) 
-
-This is the secret sauce that gives your audio its unique sound.
-1. Cooking with a Prompt Speech (Following a Famous Recipe)
-  - A prompt speech provides the desired acoustic characteristics for VoxCPM. The speaker's timbre, speaking style, and even the background sounds and ambiance will be replicated.
-  - For a Clean, Studio-Quality Voice:
-    - ✅ Enable "Prompt Speech Enhancement". This acts like a noise filter, removing background hiss and rumble to give you a pure, clean voice clone.
-2. Cooking au Naturel (Letting the Model Improvise)
-  - If no reference is provided, VoxCPM becomes a creative chef! It will infer a fitting speaking style based on the text itself, thanks to the text-smartness of its foundation model, MiniCPM-4.
-  - Pro Tip: Challenge VoxCPM with any text—poetry, song lyrics, dramatic monologues—it may deliver some interesting results!
-
----
-### 🧂 Step 3: The Final Seasoning (Fine-Tuning Your Results)
-You're ready to serve! But for master chefs who want to tweak the flavor, here are two key spices.
-- CFG Value (How Closely to Follow the Recipe)
-  - Default: A great starting point.
-  - Voice sounds strained or weird? Lower this value. It tells the model to be more relaxed and improvisational, great for expressive prompts.
-  - Need maximum clarity and adherence to the text? Raise it slightly to keep the model on a tighter leash.
-- Inference Timesteps (Simmering Time: Quality vs. Speed)
-  - Need a quick snack? Use a lower number. Perfect for fast drafts and experiments.
-  - Cooking a gourmet meal? Use a higher number. This lets the model "simmer" longer, refining the audio for superior detail and naturalness.
-
----
-Happy creating! 🎉 Start with the default settings and tweak from there to suit your project. The kitchen is yours!
-
+- **[Usage Guide](docs/usage_guide.md)** - Detailed guide on how to use VoxCPM effectively, including text input modes, voice cloning tips, and parameter tuning
+- **[Fine-tuning Guide](docs/finetune.md)** - Complete guide for fine-tuning VoxCPM models with SFT and LoRA
+- **[Release Notes](docs/release_note.md)** - Version history and updates
+- **[Performance Benchmarks](docs/performance.md)** - Detailed performance comparisons on public benchmarks
 
 ---
 
+## 📚 More Information
 
-## 🌟 Community Projects
-
+###  🌟 Community Projects
 We're excited to see the VoxCPM community growing! Here are some amazing projects and features built by our community:
-
-- **[ComfyUI-VoxCPM](https://github.com/wildminder/ComfyUI-VoxCPM)**
-- **[ComfyUI-VoxCPMTTS](https://github.com/1038lab/ComfyUI-VoxCPMTTS)** 
-- **[WebUI-VoxCPM](https://github.com/rsxdalv/tts_webui_extension.vox_cpm)**
+- **[ComfyUI-VoxCPM](https://github.com/wildminder/ComfyUI-VoxCPM)** A VoxCPM extension for ComfyUI.
+- **[ComfyUI-VoxCPMTTS](https://github.com/1038lab/ComfyUI-VoxCPMTTS)** A VoxCPM extension for ComfyUI.
+- **[WebUI-VoxCPM](https://github.com/rsxdalv/tts_webui_extension.vox_cpm)** A template extension for TTS WebUI.
 - **[PR: Streaming API Support (by AbrahamSanders)](https://github.com/OpenBMB/VoxCPM/pull/26)** 
+- **[VoxCPM-NanoVLLM](https://github.com/a710128/nanovllm-voxcpm)** NanoVLLM integration for VoxCPM for faster, high-throughput inference on GPU.
+- **[VoxCPM-ONNX](https://github.com/bluryar/VoxCPM-ONNX)** ONNX export for VoxCPM supports faster CPU inference.
+- **[VoxCPMANE](https://github.com/0seba/VoxCPMANE)** VoxCPM TTS with Apple Neural Engine backend server.
+
+*Note: The projects are not officially maintained by OpenBMB.*
 
 
 
 *Have you built something cool with VoxCPM? We'd love to feature it here! Please open an issue or pull request to add your project.*
 
+### 📊 Performance Highlights
 
-## 📊 Performance Highlights
-
-VoxCPM achieves competitive results on public zero-shot TTS benchmarks:
-
-### Seed-TTS-eval Benchmark
-
-| Model | Parameters | Open-Source | test-EN | | test-ZH | | test-Hard | |
-|------|------|------|:------------:|:--:|:------------:|:--:|:-------------:|:--:|
-| | | | WER/%⬇ | SIM/%⬆| CER/%⬇| SIM/%⬆ | CER/%⬇ | SIM/%⬆ |
-| MegaTTS3 | 0.5B | ❌ | 2.79 | 77.1 | 1.52 | 79.0 | - | - |
-| DiTAR | 0.6B | ❌ | 1.69 | 73.5 | 1.02 | 75.3 | - | - |
-| CosyVoice3 | 0.5B | ❌ | 2.02 | 71.8 | 1.16 | 78.0 | 6.08 | 75.8 |
-| CosyVoice3 | 1.5B | ❌ | 2.22 | 72.0 | 1.12 | 78.1 | 5.83 | 75.8 |
-| Seed-TTS | - | ❌ | 2.25 | 76.2 | 1.12 | 79.6 | 7.59 | 77.6 |
-| MiniMax-Speech | - | ❌ | 1.65 | 69.2 | 0.83 | 78.3 | - | - |
-| CosyVoice | 0.3B | ✅ | 4.29 | 60.9 | 3.63 | 72.3 | 11.75 | 70.9 |
-| CosyVoice2 | 0.5B | ✅ | 3.09 | 65.9 | 1.38 | 75.7 | **6.83** | 72.4 |
-| F5-TTS | 0.3B | ✅ | 2.00 | 67.0 | 1.53 | 76.0 | 8.67 | 71.3 |
-| SparkTTS | 0.5B | ✅ | 3.14 | 57.3 | 1.54 | 66.0 | - | - |
-| FireRedTTS | 0.5B | ✅ | 3.82 | 46.0 | 1.51 | 63.5 | 17.45 | 62.1 |
-| FireRedTTS-2 | 1.5B | ✅ | 1.95 | 66.5 | 1.14 | 73.6 | - | - |
-| Qwen2.5-Omni | 7B | ✅ | 2.72 | 63.2 | 1.70 | 75.2 | 7.97 | **74.7** |
-| OpenAudio-s1-mini | 0.5B | ✅ | 1.94 | 55.0 | 1.18 | 68.5 | - | - |
-| IndexTTS2 | 1.5B | ✅ | 2.23 | 70.6 | 1.03 | 76.5 | - | - |
-| VibeVoice | 1.5B | ✅ | 3.04 | 68.9 | 1.16 | 74.4 | - | - |
-| HiggsAudio-v2 | 3B | ✅ | 2.44 | 67.7 | 1.50 | 74.0 | - | - |
-| **VoxCPM** | 0.5B | ✅ | **1.85** | **72.9** | **0.93** | **77.2** | 8.87 | 73.0 |
-
-
-###  CV3-eval Benchmark
-
-| Model | zh | en | hard-zh | | | hard-en | | |
-|-------|:--:|:--:|:-------:|:--:|:--:|:-------:|:--:|:--:|
-| | CER/%⬇ | WER/%⬇ | CER/%⬇ | SIM/%⬆ | DNSMOS⬆ | WER/%⬇ | SIM/%⬆ | DNSMOS⬆ |
-| F5-TTS | 5.47 | 8.90 | - | - | - | - | - | - |
-| SparkTTS | 5.15 | 11.0 | - | - | - | - | - | - |
-| GPT-SoVits | 7.34 | 12.5 | - | - | - | - | - | - |
-| CosyVoice2 | 4.08 | 6.32 | 12.58 | 72.6 | 3.81 | 11.96 | 66.7 | 3.95 |
-| OpenAudio-s1-mini | 4.00 | 5.54 | 18.1 | 58.2 | 3.77 | 12.4 | 55.7 | 3.89 |
-| IndexTTS2 | 3.58 | 4.45 | 12.8 | 74.6 | 3.65 | - | - | - |
-| HiggsAudio-v2 | 9.54 | 7.89 | 41.0 | 60.2 | 3.39 | 10.3 | 61.8 | 3.68 |
-| CosyVoice3-0.5B | 3.89 | 5.24 | 14.15 | 78.6 | 3.75 | 9.04 | 75.9 | 3.92 |
-| CosyVoice3-1.5B | 3.91 | 4.99 | 9.77 | 78.5 | 3.79 | 10.55 | 76.1 | 3.95 |
-| **VoxCPM** | **3.40** | **4.04** | 12.9 | 66.1 | 3.59 | **7.89** | 64.3 | 3.74 |
-
-
-
-
-
-
-
-
-
+VoxCPM achieves competitive results on public zero-shot TTS benchmarks. See [Performance Benchmarks](docs/performance.md) for detailed comparison tables.
 
 
 
@@ -273,12 +230,15 @@ VoxCPM achieves competitive results on public zero-shot TTS benchmarks:
 - Bilingual Model: VoxCPM is trained primarily on Chinese and English data. Performance on other languages is not guaranteed and may result in unpredictable or low-quality audio.
 - This model is released for research and development purposes only. We do not recommend its use in production or commercial applications without rigorous testing and safety evaluations. Please use VoxCPM responsibly.
 
+---
 
-
-## 📝TO-DO List
+## 📝 TO-DO List
 Please stay tuned for updates!
 - [x] Release the VoxCPM technical report.
-- [ ] Support higher sampling rate (next version).
+- [x] Support higher sampling rate (44.1kHz in VoxCPM-1.5).
+- [x] Support SFT and LoRA fine-tuning.
+- [] Multilingual Support (besides ZH/EN).
+- [] Controllable Speech Generation by Human Instruction.
 
 
 

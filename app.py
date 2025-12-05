@@ -8,7 +8,7 @@ from funasr import AutoModel
 from pathlib import Path
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 if os.environ.get("HF_REPO_ID", "").strip() == "":
-    os.environ["HF_REPO_ID"] = "openbmb/VoxCPM-0.5B"
+    os.environ["HF_REPO_ID"] = "openbmb/VoxCPM1.5"
 
 import voxcpm
 
@@ -29,7 +29,7 @@ class VoxCPMDemo:
 
         # TTS model (lazy init)
         self.voxcpm_model: Optional[voxcpm.VoxCPM] = None
-        self.default_local_model_dir = "./models/VoxCPM-0.5B"
+        self.default_local_model_dir = "./models/VoxCPM1.5"
 
     # ---------- Model helpers ----------
     def _resolve_model_dir(self) -> str:
@@ -108,7 +108,7 @@ class VoxCPMDemo:
             normalize=do_normalize,
             denoise=denoise,
         )
-        return (16000, wav)
+        return (current_model.tts_model.sample_rate, wav)
 
 
 # ---------- UI Builders ----------

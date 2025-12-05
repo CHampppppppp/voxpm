@@ -69,7 +69,7 @@ def load_model(args) -> VoxCPM:
     # Otherwise, try from_pretrained (Hub); exit on failure
     try:
         model = VoxCPM.from_pretrained(
-            hf_model_id=getattr(args, "hf_model_id", "openbmb/VoxCPM-0.5B"),
+            hf_model_id=getattr(args, "hf_model_id", "openbmb/VoxCPM1.5"),
             load_denoiser=not getattr(args, "no_denoiser", False),
             zipenhancer_model_id=zipenhancer_path,
             cache_dir=getattr(args, "cache_dir", None),
@@ -120,11 +120,11 @@ def cmd_clone(args):
     )
     
     # Save audio
-    sf.write(str(output_path), audio_array, 16000)
+    sf.write(str(output_path), audio_array, model.tts_model.sample_rate)
     print(f"Saved audio to: {output_path}")
     
     # Stats
-    duration = len(audio_array) / 16000
+    duration = len(audio_array) / model.tts_model.sample_rate
     print(f"Duration: {duration:.2f}s")
 
 
@@ -152,11 +152,11 @@ def cmd_synthesize(args):
     )
     
     # Save audio
-    sf.write(str(output_path), audio_array, 16000)
+    sf.write(str(output_path), audio_array, model.tts_model.sample_rate)
     print(f"Saved audio to: {output_path}")
     
     # Stats
-    duration = len(audio_array) / 16000
+    duration = len(audio_array) / model.tts_model.sample_rate
     print(f"Duration: {duration:.2f}s")
 
 
@@ -198,9 +198,9 @@ def cmd_batch(args):
                 denoise=args.denoise and prompt_audio_path is not None
             )
             output_file = output_dir / f"output_{i:03d}.wav"
-            sf.write(str(output_file), audio_array, 16000)
+            sf.write(str(output_file), audio_array, model.tts_model.sample_rate)
             
-            duration = len(audio_array) / 16000
+            duration = len(audio_array) / model.tts_model.sample_rate
             print(f"  Saved: {output_file} ({duration:.2f}s)")
             success_count += 1
             
@@ -250,7 +250,7 @@ Examples:
 
     # Model loading parameters
     parser.add_argument("--model-path", type=str, help="Local VoxCPM model path (overrides Hub download)")
-    parser.add_argument("--hf-model-id", type=str, default="openbmb/VoxCPM-0.5B", help="Hugging Face repo id (e.g., openbmb/VoxCPM-0.5B)")
+    parser.add_argument("--hf-model-id", type=str, default="openbmb/VoxCPM1.5", help="Hugging Face repo id (e.g., openbmb/VoxCPM1.5 or openbmb/VoxCPM-0.5B)")
     parser.add_argument("--cache-dir", type=str, help="Cache directory for Hub downloads")
     parser.add_argument("--local-files-only", action="store_true", help="Use only local files (no network)")
     parser.add_argument("--no-denoiser", action="store_true", help="Disable denoiser model loading")

@@ -29,7 +29,7 @@ dependencies = [
     "torchaudio>=2.5.0",
     "transformers>=4.36.2",
     "einops",
-    "gradio",
+    "gradio<6",
     "inflect",
     "addict",
     "wetext",
@@ -42,7 +42,10 @@ dependencies = [
     "sortedcontainers",
     "soundfile",
     "funasr",
-    "spaces"
+    "spaces",
+    "argbind",
+    "safetensors"
+
 ]
 
 [project.optional-dependencies]
