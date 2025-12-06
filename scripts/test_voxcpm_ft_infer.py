@@ -114,7 +114,7 @@ def main():
         prompt_text=prompt_text,
         cfg_value=args.cfg_value,
         inference_timesteps=args.inference_timesteps,
-        max_length=args.max_len,
+        max_len=args.max_len,
         normalize=args.normalize,
         denoise=False,
     )
