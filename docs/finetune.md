@@ -430,33 +430,37 @@ python scripts/test_voxcpm_lora_infer.py \
 
 ## FAQ
 
-### 1. Out of Memory (OOM)
+### 1. How Much Data is Needed for LoRA Fine-tuning to Converge to a Single Voice?
+
+We have tested with 5 minutes and 10 minutes of data (all audio clips are 3-6s in length). In our experiments, both datasets converged to a single voice after 2000 training steps with default configurations. You can adjust the data amount and training configurations based on your available data and computational resources.
+
+### 2. Out of Memory (OOM)
 
 - Increase `grad_accum_steps` (gradient accumulation)
 - Decrease `batch_size`
 - Use LoRA fine-tuning instead of full fine-tuning
 - Decrease `max_batch_tokens` to filter long samples
 
-### 2. Poor LoRA Performance
+### 3. Poor LoRA Performance
 
 - Increase `r` (LoRA rank)
 - Adjust `alpha` (try `alpha = r/2` or `alpha = r`)
 - Increase training steps
 - Add more target modules
 
-### 3. Training Not Converging
+### 4. Training Not Converging
 
 - Decrease `learning_rate`
 - Increase `warmup_steps`
 - Check data quality
 
-### 4. LoRA Not Taking Effect at Inference
+### 5. LoRA Not Taking Effect at Inference
 
 - Check that `lora_config.json` exists in the checkpoint directory
 - Check `load_lora()` return value - `skipped_keys` should be empty
 - Verify `set_lora_enabled(True)` is called
 
-### 5. Checkpoint Loading Errors
+### 6. Checkpoint Loading Errors
 
 - Full fine-tuning: checkpoint directory should contain `model.safetensors` (or `pytorch_model.bin`), `config.json`, `audiovae.pth`
 - LoRA: checkpoint directory should contain:
