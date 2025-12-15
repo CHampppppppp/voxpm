@@ -452,7 +452,6 @@ class VoxCPMModel(nn.Module):
                 patch_len = self.patch_size * self.chunk_size
                 for latent_pred, _ in inference_result:
                     decode_audio = self.audio_vae.decode(latent_pred.to(torch.float32))
-                    print(decode_audio.shape)
                     decode_audio = decode_audio[..., -patch_len:].squeeze(1).cpu()
                     yield decode_audio
                 break
