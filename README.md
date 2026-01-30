@@ -176,7 +176,7 @@ python app.py
 
 ### 5. WebSocket API 服务
 
-VoxCPM 提供了一个基于 WebSocket 的高性能异步 API 服务，支持并发请求、声音克隆、自动 ASR 和 Prompt 缓存。
+VoxCPM 提供基于 WebSocket 的高性能异步 API 服务，支持并发请求与声音克隆，仅保留 TTS 能力。
 
 **启动服务**:
 ```bash
@@ -186,11 +186,14 @@ python api.py
 
 **接口功能**:
 *   `ws://host:port/ws/generate`: 标准语音合成接口。
-    *   **特性**: 支持传入 `prompt_wav_path` 进行克隆。如果未提供 `prompt_text`，服务器会自动调用 FunASR 模型进行识别。支持 `denoise` 参数去除参考音频底噪。
-*   `ws://host:port/ws/build_cache`: 构建 Prompt 缓存。
-    *   **用途**: 预处理参考音频特征，返回 `cache_id`，用于后续快速生成，避免重复计算。
-*   `ws://host:port/ws/generate_with_cache`: 使用缓存生成。
-    *   **用途**: 传入 `prompt_cache_id` 进行合成，适合同一角色的连续对话生成。
+    *   **特性**: 支持传入 `prompt_wav_path` 和 `prompt_text` 进行克隆，不再自动识别文本。
+*   `ws://host:port/ws/health`: WebSocket 健康检查。
+*   `ws://host:port/ws/models`: WebSocket 获取模型信息。
+
+**HTTP 接口**:
+*   `http://host:port/health`: HTTP 健康检查。
+*   `http://host:port/models`: 获取模型信息。
+*   `http://host:port/generate`: 生成 WAV 音频。
 
 **请求示例**:
 ```json

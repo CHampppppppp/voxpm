@@ -81,10 +81,10 @@ class VoxCPMDemo:
         text_input: str,
         prompt_wav_path_input: Optional[str] = None,
         prompt_text_input: Optional[str] = None,
-        cfg_value_input: float = 4.0,
-        inference_timesteps_input: int = 10,
+        cfg_value_input: float = 2.0,
+        inference_timesteps_input: int = 25,
         do_normalize: bool = True,
-        denoise: bool = True,
+        denoise: bool = False,
     ) -> Tuple[int, np.ndarray]:
         """
         Generate speech from text using VoxCPM; optional reference audio for voice style guidance.
@@ -264,11 +264,11 @@ def create_demo_interface(demo: VoxCPMDemo):
     return interface
 
 
-def run_demo(server_name: str = "localhost", server_port: int = 7861, show_error: bool = True):
+def run_demo(server_name: str = "0.0.0.0", server_port: int = 7861, show_error: bool = True):
     demo = VoxCPMDemo()
     interface = create_demo_interface(demo)
     # Recommended to enable queue on Spaces for better throughput
-    interface.queue(max_size=10, default_concurrency_limit=1).launch(server_name=server_name, server_port=server_port, show_error=show_error,share=False)
+    interface.queue(max_size=10, default_concurrency_limit=1).launch(server_name=server_name, server_port=server_port, show_error=show_error,share=True)
 
 
 if __name__ == "__main__":

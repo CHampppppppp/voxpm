@@ -10,33 +10,21 @@ WebSocket Endpoints:
     ws://host:port/ws/generate - 语音合成
     ws://host:port/ws/health - 健康检查
     ws://host:port/ws/models - 获取模型信息
-    ws://host:port/ws/vad - 语音活动检测
-    ws://host:port/ws/asr - 语音识别
 """
 
-from math import fabs
 import os
 import sys
 import torch
 import numpy as np
 import voxcpm
 import torchaudio
-from funasr import AutoModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import tempfile
-import uuid
 import threading
 from contextlib import asynccontextmanager
 import json
-
-import io
-
-# ASR模型配置（用于自动识别参考音频文本）
-ASR_MODEL_ID = "iic/SenseVoiceSmall"
-# VAD模型配置（用于语音活动检测）
-VAD_MODEL_ID = "iic/speech_fsmn_vad_zh-cn-16k-common-pytorch"
 
 # 配置
 MODEL_PATH = os.environ.get("VOXCPM_MODEL_PATH", "/home/zju/VoxCPM/models/openbmb__VoxCPM1.5")
@@ -51,48 +39,6 @@ DEFAULT_PROMPT_TEXT = os.environ.get("DEFAULT_PROMPT_TEXT", "")
 _tts_model: Optional[voxcpm.VoxCPM] = None
 _model_lock = threading.Lock()
 
-# 全局 ASR 模型（懒加载）
-_asr_model: Optional[AutoModel] = None
-_asr_lock = threading.Lock()
-
-# 全局 VAD 模型（懒加载）
-_vad_model: Optional[AutoModel] = None
-_vad_lock = threading.Lock()
-
-
-def get_vad_model() -> AutoModel:
-    """获取或初始化 VAD 模型（线程安全懒加载）"""
-    global _vad_model
-    if _vad_model is None:
-        with _vad_lock:
-            if _vad_model is None:
-                print(f"Loading VAD model: {VAD_MODEL_ID}...", file=sys.stderr)
-                _vad_model = AutoModel(
-                    model=VAD_MODEL_ID,
-                    disable_update=True,
-                    log_level='ERROR',
-                    device="cuda" if torch.cuda.is_available() else "cpu",
-                )
-                print("VAD model loaded successfully!", file=sys.stderr)
-    return _vad_model
-
-
-def get_asr_model() -> AutoModel:
-    """获取或初始化 ASR 模型（线程安全懒加载）"""
-    global _asr_model
-    if _asr_model is None:
-        with _asr_lock:
-            if _asr_model is None:
-                print(f"Loading ASR model: {ASR_MODEL_ID}...", file=sys.stderr)
-                _asr_model = AutoModel(
-                    model=ASR_MODEL_ID,
-                    disable_update=True,
-                    log_level='ERROR',
-                    device="cuda" if torch.cuda.is_available() else "cpu",
-                )
-                print("ASR model loaded successfully!", file=sys.stderr)
-    return _asr_model
-
 
 def get_model() -> voxcpm.VoxCPM:
     """获取或初始化模型（线程安全懒加载）"""
@@ -104,7 +50,7 @@ def get_model() -> voxcpm.VoxCPM:
                 _tts_model = voxcpm.VoxCPM(
                     voxcpm_model_path=MODEL_PATH,
                     enable_denoiser=True,  # 启用降噪以提升克隆质量
-                    optimize=True,
+                    optimize=False,
                 )
                 print("Model loaded successfully!", file=sys.stderr)
     return _tts_model
@@ -113,9 +59,10 @@ def get_model() -> voxcpm.VoxCPM:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时预加载模型
-    model = get_model()
-    print(f"TTS Service started. Sample rate: {model.tts_model.sample_rate} Hz", file=sys.stderr)
+    # 启动时在后台线程预加载模型，避免阻塞服务启动
+    # 这样 /health 接口可以立即响应，而模型在后台加载
+    print("Starting background model loading...", file=sys.stderr)
+    threading.Thread(target=get_model, daemon=True).start()
     yield
     # 关闭时清理
     pass
@@ -140,9 +87,7 @@ async def root():
             "http_models": "/models",
             "ws_generate": "/ws/generate",
             "ws_health": "/ws/health",
-            "ws_models": "/ws/models",
-            "ws_vad": "/ws/vad",
-            "ws_asr": "/ws/asr"
+            "ws_models": "/ws/models"
         }
     }
 
@@ -205,7 +150,12 @@ ws_manager = WebSocketManager()
 @app.get("/health")
 async def health_check():
     """健康检查接口"""
-    return {"status": "ok", "message": "TTS service is running"}
+    is_loaded = _tts_model is not None
+    return {
+        "status": "ok", 
+        "message": "TTS service is running", 
+        "model_loaded": is_loaded
+    }
 
 
 @app.get("/models")
@@ -238,17 +188,6 @@ async def http_generate(request: TTSRequest):
     if prompt_wav_path:
         if not os.path.exists(prompt_wav_path):
             return {"status": "error", "message": f"Prompt audio file not found: {prompt_wav_path}"}
-        
-        # 自动识别 Prompt Text (如果未提供)
-        if not prompt_text:
-            try:
-                asr = get_asr_model()
-                print(f"Auto-recognizing prompt text from {prompt_wav_path}...", file=sys.stderr)
-                res = asr.generate(input=prompt_wav_path, language="auto", use_itn=True)
-                prompt_text = res[0]["text"].split('|>')[-1]
-                print(f"Recognized prompt text: {prompt_text}", file=sys.stderr)
-            except Exception as e:
-                print(f"ASR failed: {e}", file=sys.stderr)
 
     # 处理默认参考音频
     if prompt_wav_path is None and prompt_text is None:
@@ -298,122 +237,6 @@ async def http_generate(request: TTSRequest):
         return {"status": "error", "message": f"Generation failed: {str(e)}"}
 
 
-class PromptCacheRequest(BaseModel):
-    prompt_wav_path: str
-    prompt_text: Optional[str] = None
-
-
-class GenerateWithCacheRequest(BaseModel):
-    text: str
-    prompt_cache_id: str
-    cfg_value: float = 2.0
-    inference_timesteps: int = 25
-    normalize: bool = False
-    seed: Optional[int] = None  # 新增: 随机种子
-
-
-# 全局 Prompt Cache 存储 (简单的内存存储)
-_prompt_cache_store: Dict[str, Any] = {}
-_cache_lock = threading.Lock()
-
-
-@app.post("/build_cache")
-async def build_cache(request: PromptCacheRequest):
-    """构建 Prompt Cache"""
-    if not os.path.exists(request.prompt_wav_path):
-        return {"status": "error", "message": f"Prompt audio file not found: {request.prompt_wav_path}"}
-    
-    prompt_text = request.prompt_text
-    if not prompt_text:
-        try:
-            asr = get_asr_model()
-            res = asr.generate(input=request.prompt_wav_path, language="auto", use_itn=True)
-            prompt_text = res[0]["text"].split('|>')[-1]
-        except Exception as e:
-            return {"status": "error", "message": f"ASR failed: {e}"}
-
-    try:
-        model = get_model()
-        # 调用模型的 build_prompt_cache
-        # 注意: VoxCPM 的 build_prompt_cache 返回的是一个 dict
-        cache_data = model.tts_model.build_prompt_cache(
-            prompt_text=prompt_text,
-            prompt_wav_path=request.prompt_wav_path
-        )
-        
-        # 生成 ID
-        cache_id = str(uuid.uuid4())
-        with _cache_lock:
-            _prompt_cache_store[cache_id] = cache_data
-        
-        return {
-            "status": "success", 
-            "cache_id": cache_id, 
-            "message": "Prompt cache built successfully",
-            "prompt_text": prompt_text
-        }
-    except Exception as e:
-        return {"status": "error", "message": f"Build cache failed: {str(e)}"}
-
-
-@app.post("/generate_with_cache")
-async def generate_with_cache(request: GenerateWithCacheRequest):
-    """使用 Cache 生成语音"""
-    if request.prompt_cache_id not in _prompt_cache_store:
-        return {"status": "error", "message": "Invalid cache_id"}
-    
-    cache_data = _prompt_cache_store[request.prompt_cache_id]
-    
-    # 设置随机种子
-    if request.seed is not None:
-        set_seed(request.seed)
-
-    try:
-        model = get_model()
-        # 注意: VoxCPM 的 generate_with_prompt_cache 方法
-        wav = model.tts_model.generate_with_prompt_cache(
-            target_text=request.text,
-            prompt_cache=cache_data,
-            cfg_value=request.cfg_value,
-            inference_timesteps=request.inference_timesteps,
-        )
-        # 注意：model.tts_model.generate_with_prompt_cache 返回的是 tensor (可能需要 squeeze 和 cpu())
-        # 需要检查 voxcpm.py 源码确认返回值类型
-        # 根据源码: return next(self._generate_with_prompt_cache(*args, streaming=False, **kwargs))
-        # _generate_with_prompt_cache yield (decode_audio, target_text_token, pred_audio_feat)
-        # 所以返回值是 tuple
-        
-        decode_audio, _, _ = wav
-        if isinstance(decode_audio, torch.Tensor):
-            wav_numpy = decode_audio.squeeze().cpu().numpy()
-        else:
-            wav_numpy = decode_audio
-
-        # 保存到临时文件
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        audio_tensor = torch.from_numpy(wav_numpy).unsqueeze(0)
-        torchaudio.save(temp_file.name, audio_tensor, sample_rate=model.tts_model.sample_rate, format="wav")
-        temp_file.close()
-
-        # 返回文件流
-        from fastapi.responses import FileResponse
-        from starlette.background import BackgroundTask
-
-        def cleanup():
-            if os.path.exists(temp_file.name):
-                os.remove(temp_file.name)
-
-        return FileResponse(
-            temp_file.name, 
-            media_type="audio/wav", 
-            filename="output.wav",
-            background=BackgroundTask(cleanup)
-        )
-    except Exception as e:
-        return {"status": "error", "message": f"Generation failed: {str(e)}"}
-
-
-
 @app.websocket("/")
 async def websocket_root(websocket: WebSocket):
     """
@@ -427,9 +250,7 @@ async def websocket_root(websocket: WebSocket):
         "endpoints": {
             "generate": "/ws/generate",
             "health": "/ws/health",
-            "models": "/ws/models",
-            "vad": "/ws/vad",
-            "asr": "/ws/asr"
+            "models": "/ws/models"
         }
     })
     await websocket.close()
@@ -473,111 +294,6 @@ async def websocket_models(websocket: WebSocket):
         })
     except Exception as e:
         await ws_manager.send_error(websocket, f"Failed to get model info: {str(e)}")
-    finally:
-        ws_manager.disconnect(websocket)
-
-
-@app.websocket("/ws/vad")
-async def websocket_vad(websocket: WebSocket):
-    """
-    WebSocket 语音活动检测接口 (VAD)
-    
-    发送格式: 二进制音频数据 (16k采样率, 单声道, 16bit PCM 或 WAV)
-    
-    接收格式:
-    {
-        "status": "success",
-        "vad_segments": [[beg, end], ...],  // 语音段起止时间（毫秒）
-        "has_speech": true/false
-    }
-    """
-    await ws_manager.connect(websocket)
-    try:
-        while True:
-            try:
-                # 接收二进制音频数据
-                audio_bytes = await websocket.receive_bytes()
-                
-                # 将 bytes 转换为临时文件或直接传递给模型
-                # FunASR generate 通常接受文件路径或 numpy 数组
-                # 这里我们先解码为 numpy
-                try:
-                    audio_tensor, sample_rate = torchaudio.load(io.BytesIO(audio_bytes))
-                    # 重采样到 16k (VAD 模型通常需要 16k)
-                    if sample_rate != 44100:
-                        resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=44100)
-                        audio_tensor = resampler(audio_tensor)
-                    
-                    audio_in = audio_tensor.mean(dim=0).numpy() # 转单声道 numpy
-                except Exception as e:
-                    # 尝试直接作为 pcm 处理? 暂不支持，假设是 wav 格式
-                    await ws_manager.send_error(websocket, f"Audio decode failed: {e}")
-                    continue
-
-                vad_model = get_vad_model()
-                # max_single_segment_time: 最大单段语音时长
-                res = vad_model.generate(input=audio_in, cache={}, is_final=True, chunk_size=200, encoder_chunk_look_back=4, decoder_chunk_look_back=1)
-                
-                segments = []
-                if res and len(res) > 0 and 'value' in res[0]:
-                    segments = res[0]['value']
-                
-                await ws_manager.send_json(websocket, {
-                    "status": "success",
-                    "vad_segments": segments,
-                    "has_speech": len(segments) > 0
-                })
-
-            except WebSocketDisconnect:
-                break
-            except Exception as e:
-                await ws_manager.send_error(websocket, f"VAD processing failed: {str(e)}")
-    finally:
-        ws_manager.disconnect(websocket)
-
-
-@app.websocket("/ws/asr")
-async def websocket_asr(websocket: WebSocket):
-    """
-    WebSocket 语音识别接口 (ASR)
-    
-    发送格式: 二进制音频数据 (WAV 格式)
-    
-    接收格式:
-    {
-        "status": "success",
-        "text": "识别结果"
-    }
-    """
-    await ws_manager.connect(websocket)
-    try:
-        while True:
-            try:
-                audio_bytes = await websocket.receive_bytes()
-                
-                # 写入临时文件供 SenseVoice 读取
-                temp_path = tempfile.mktemp(suffix=".wav")
-                with open(temp_path, "wb") as f:
-                    f.write(audio_bytes)
-                
-                try:
-                    asr_model = get_asr_model()
-                    # SenseVoice 参数调整: use_itn=True (逆文本标准化), language="auto"
-                    res = asr_model.generate(input=temp_path, language="auto", use_itn=True)
-                    text = res[0]["text"].split('|>')[-1]
-                    
-                    await ws_manager.send_json(websocket, {
-                        "status": "success",
-                        "text": text
-                    })
-                finally:
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-
-            except WebSocketDisconnect:
-                break
-            except Exception as e:
-                await ws_manager.send_error(websocket, f"ASR processing failed: {str(e)}")
     finally:
         ws_manager.disconnect(websocket)
 
@@ -630,19 +346,6 @@ async def websocket_generate(websocket: WebSocket):
                     if not os.path.exists(prompt_wav_path):
                         await ws_manager.send_error(websocket, f"Prompt audio file not found: {prompt_wav_path}")
                         continue
-                    
-                    # 自动识别 Prompt Text (如果未提供)
-                    if not prompt_text:
-                        try:
-                            asr = get_asr_model()
-                            print(f"Auto-recognizing prompt text from {prompt_wav_path}...", file=sys.stderr)
-                            res = asr.generate(input=prompt_wav_path, language="auto", use_itn=True)
-                            # funasr 返回格式可能是列表，取出 text
-                            prompt_text = res[0]["text"].split('|>')[-1]
-                            print(f"Recognized prompt text: {prompt_text}", file=sys.stderr)
-                        except Exception as e:
-                            print(f"ASR failed: {e}", file=sys.stderr)
-                            # 即使识别失败，也尝试继续（可能会在 VoxCPM 报错）
 
                 # 处理默认参考音频（当用户没有提供任何参数时）
                 if prompt_wav_path is None and prompt_text is None:
@@ -650,17 +353,6 @@ async def websocket_generate(websocket: WebSocket):
                         prompt_wav_path = DEFAULT_PROMPT_WAV_PATH
                         prompt_text = DEFAULT_PROMPT_TEXT if DEFAULT_PROMPT_TEXT else None
                     # 如果默认值也没有配置，则 prompt_wav_path 和 prompt_text 保持为 None（不使用声音克隆）
-                
-                # 如果有参考音频但没有参考文本，尝试自动识别
-                if prompt_wav_path and not prompt_text:
-                    try:
-                        asr = get_asr_model()
-                        print(f"Auto-recognizing prompt text from {prompt_wav_path}...", file=sys.stderr)
-                        res = asr.generate(input=prompt_wav_path, language="auto", use_itn=True)
-                        prompt_text = res[0]["text"].split('|>')[-1]
-                        print(f"Recognized prompt text: {prompt_text}", file=sys.stderr)
-                    except Exception as e:
-                        print(f"ASR failed: {e}", file=sys.stderr)
 
                 # 设置随机种子
                 seed = data.get("seed")
@@ -692,9 +384,6 @@ async def websocket_generate(websocket: WebSocket):
                         
                         await ws_manager.send_bytes(websocket, chunk_bytes)
                         total_bytes += len(chunk_bytes)
-                        # Yield to event loop to keep connection alive and responsive
-                        # await asyncio.sleep(0) 
-
                     # 发送完成消息
                     await ws_manager.send_json(websocket, {
                         "status": "success", 
@@ -754,8 +443,6 @@ if __name__ == "__main__":
     print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/generate")
     print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/health")
     print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/models")
-    print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/vad")
-    print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/asr")
     print("=" * 60)
 
     uvicorn.run(
@@ -765,6 +452,3 @@ if __name__ == "__main__":
         workers=1,  # GPU 模型建议单 worker
         log_level="info",
     )
-
-
-
