@@ -190,6 +190,7 @@ python api.py
 *   `ws://host:port/ws/health`: WebSocket 健康检查。
 *   `ws://host:port/ws/models`: WebSocket 获取模型信息。
 *   `ws://host:port/ws/asr`: WebSocket 语音识别接口（SenseVoice-Small）。
+*   `ws://host:port/ws/vad`: WebSocket 语音活动检测接口（FSMN-VAD）。
 
 **HTTP 接口**:
 *   `http://host:port/health`: HTTP 健康检查。
@@ -221,6 +222,24 @@ async def main():
         await ws.send(audio_bytes)
         resp = await ws.recv()
         print(resp)  # {"status":"success","text":"识别结果"}
+
+asyncio.run(main())
+```
+
+**VAD 使用示例（Python）**:
+```python
+import asyncio
+import websockets
+
+async def main():
+    uri = "ws://127.0.0.1:8080/ws/vad"
+    with open("/path/to/audio.wav", "rb") as f:
+        audio_bytes = f.read()
+
+    async with websockets.connect(uri) as ws:
+        await ws.send(audio_bytes)
+        resp = await ws.recv()
+        print(resp)  # {"status":"success","vad_segments":[...],"has_speech":true}
 
 asyncio.run(main())
 ```

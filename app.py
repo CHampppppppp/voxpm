@@ -204,7 +204,7 @@ def create_demo_interface(demo: VoxCPMDemo):
                     sources=["upload", 'microphone'],
                     type="filepath",
                     label="Prompt Speech (Optional, or let VoxCPM improvise)",
-                    value="./examples/hailan07_short.wav",
+                    value="./examples/hailan07.wav",
                 )
                 DoDenoisePromptAudio = gr.Checkbox(
                     value=False,

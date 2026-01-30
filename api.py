@@ -11,6 +11,7 @@ WebSocket Endpoints:
     ws://host:port/ws/health - 健康检查
     ws://host:port/ws/models - 获取模型信息
     ws://host:port/ws/asr - 语音识别
+    ws://host:port/ws/vad - 语音活动检测
 """
 
 import os
@@ -27,15 +28,34 @@ import tempfile
 import threading
 from contextlib import asynccontextmanager
 import json
+import io
 
 # 配置
 MODEL_PATH = os.environ.get("VOXCPM_MODEL_PATH", "/home/zju/VoxCPM/models/openbmb__VoxCPM1.5")
 SERVER_HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
 SERVER_PORT = int(os.environ.get("SERVER_PORT", 8080))
 # 默认参考声音配置
-DEFAULT_PROMPT_WAV_PATH = os.environ.get("DEFAULT_PROMPT_WAV_PATH", "")
-DEFAULT_PROMPT_TEXT = os.environ.get("DEFAULT_PROMPT_TEXT", "")
+DEFAULT_PROMPT_WAV_PATH = os.environ.get("DEFAULT_PROMPT_WAV_PATH", "/home/zju/VoxCPM/examples/hailan02.wav")
+DEFAULT_PROMPT_TEXT = os.environ.get("DEFAULT_PROMPT_TEXT", "感谢您的耐心，我这就去核实一下。在江苏电力现货市场里，费用分摊主要涉及几类。")
 ASR_MODEL_ID = os.environ.get("ASR_MODEL_ID", "iic/SenseVoiceSmall")
+VAD_MODEL_ID = os.environ.get("VAD_MODEL_ID", "iic/speech_fsmn_vad_zh-cn-16k-common-pytorch")
+VOICE_PRESET_DIR = os.environ.get("VOICE_PRESET_DIR", "/home/zju/VoxCPM/examples")
+VOICE_PRESET_MAP_RAW = os.environ.get("VOICE_PRESET_MAP", "/home/zju/VoxCPM/examples/voice_map.json")
+VOICE_PRESET_TEXT_MAP_RAW = os.environ.get("VOICE_PRESET_TEXT_MAP", "/home/zju/VoxCPM/examples/voice_text_map.json")
+
+
+def parse_json_map(raw_value: str) -> Dict[str, str]:
+    if not raw_value:
+        return {}
+    try:
+        data = json.loads(raw_value)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+VOICE_PRESET_MAP = parse_json_map(VOICE_PRESET_MAP_RAW)
+VOICE_PRESET_TEXT_MAP = parse_json_map(VOICE_PRESET_TEXT_MAP_RAW)
 
 
 # 全局模型实例（懒加载）
@@ -43,6 +63,8 @@ _tts_model: Optional[voxcpm.VoxCPM] = None
 _model_lock = threading.Lock()
 _asr_model: Optional[AutoModel] = None
 _asr_lock = threading.Lock()
+_vad_model: Optional[AutoModel] = None
+_vad_lock = threading.Lock()
 
 
 def get_asr_model() -> AutoModel:
@@ -59,6 +81,22 @@ def get_asr_model() -> AutoModel:
                 )
                 print("ASR model loaded successfully!", file=sys.stderr)
     return _asr_model
+
+
+def get_vad_model() -> AutoModel:
+    global _vad_model
+    if _vad_model is None:
+        with _vad_lock:
+            if _vad_model is None:
+                print(f"Loading VAD model: {VAD_MODEL_ID}...", file=sys.stderr)
+                _vad_model = AutoModel(
+                    model=VAD_MODEL_ID,
+                    disable_update=True,
+                    log_level="ERROR",
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                )
+                print("VAD model loaded successfully!", file=sys.stderr)
+    return _vad_model
 
 
 def get_model() -> voxcpm.VoxCPM:
@@ -109,7 +147,8 @@ async def root():
             "ws_generate": "/ws/generate",
             "ws_health": "/ws/health",
             "ws_models": "/ws/models",
-            "ws_asr": "/ws/asr"
+            "ws_asr": "/ws/asr",
+            "ws_vad": "/ws/vad"
         }
     }
 
@@ -121,11 +160,29 @@ class TTSRequest(BaseModel):
     text: str
     prompt_wav_path: Optional[str] = None
     prompt_text: Optional[str] = None
+    voice_id: Optional[str] = None
     cfg_value: float = 2.0
     inference_timesteps: int = 25
     normalize: bool = False
     denoise: bool = False
     seed: Optional[int] = None  # 新增: 随机种子
+
+
+def resolve_voice_preset(voice_id: Optional[str]):
+    if not voice_id:
+        return None, None, None
+    if voice_id in VOICE_PRESET_MAP:
+        prompt_wav_path = VOICE_PRESET_MAP.get(voice_id, "")
+    elif VOICE_PRESET_DIR:
+        prompt_wav_path = os.path.join(VOICE_PRESET_DIR, f"{voice_id}.wav")
+    else:
+        prompt_wav_path = ""
+
+    if prompt_wav_path and not os.path.exists(prompt_wav_path):
+        return None, None, f"Prompt audio file not found for voice_id: {voice_id}"
+
+    prompt_text = VOICE_PRESET_TEXT_MAP.get(voice_id) if VOICE_PRESET_TEXT_MAP else None
+    return prompt_wav_path or None, prompt_text, None
 
 
 
@@ -205,6 +262,16 @@ async def http_generate(request: TTSRequest):
     # 处理参考音频参数
     prompt_wav_path = request.prompt_wav_path
     prompt_text = request.prompt_text
+    voice_id = request.voice_id
+
+    if not prompt_wav_path and voice_id:
+        preset_wav, preset_text, preset_error = resolve_voice_preset(voice_id)
+        if preset_error:
+            return {"status": "error", "message": preset_error}
+        if preset_wav:
+            prompt_wav_path = preset_wav
+        if not prompt_text and preset_text:
+            prompt_text = preset_text
 
     # 验证参考音频文件是否存在（如果提供了的话）
     if prompt_wav_path:
@@ -273,7 +340,8 @@ async def websocket_root(websocket: WebSocket):
             "generate": "/ws/generate",
             "health": "/ws/health",
             "models": "/ws/models",
-            "asr": "/ws/asr"
+            "asr": "/ws/asr",
+            "vad": "/ws/vad"
         }
     })
     await websocket.close()
@@ -348,6 +416,38 @@ async def websocket_asr(websocket: WebSocket):
         ws_manager.disconnect(websocket)
 
 
+@app.websocket("/ws/vad")
+async def websocket_vad(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            try:
+                audio_bytes = await websocket.receive_bytes()
+                try:
+                    audio_tensor, sample_rate = torchaudio.load(io.BytesIO(audio_bytes))
+                except Exception as e:
+                    await ws_manager.send_error(websocket, f"Audio decode failed: {e}")
+                    continue
+
+                if sample_rate != 16000:
+                    resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
+                    audio_tensor = resampler(audio_tensor)
+
+                audio_in = audio_tensor.mean(dim=0).numpy()
+                vad_model = get_vad_model()
+                res = vad_model.generate(input=audio_in, cache={}, is_final=True, chunk_size=200, encoder_chunk_look_back=4, decoder_chunk_look_back=1)
+                segments = []
+                if res and len(res) > 0 and "value" in res[0]:
+                    segments = res[0]["value"]
+                await ws_manager.send_json(websocket, {"status": "success", "vad_segments": segments, "has_speech": len(segments) > 0})
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                await ws_manager.send_error(websocket, f"VAD processing failed: {str(e)}")
+    finally:
+        ws_manager.disconnect(websocket)
+
+
 @app.websocket("/ws/generate")
 async def websocket_generate(websocket: WebSocket):
     """
@@ -360,6 +460,7 @@ async def websocket_generate(websocket: WebSocket):
         "text": "要合成的文本",
         "prompt_wav_path": "/path/to/reference.wav",  // 可选
         "prompt_text": "参考音频对应的文本",           // 可选
+        "voice_id": "voice_001",                       // 可选，音色ID自动映射参考音频
         "cfg_value": 2.0,                              // 可选，默认 2.0 (推荐)
         "inference_timesteps": 25,                     // 可选，默认 25 (更高质量可设为 30-50)
         "normalize": false,                            // 可选，默认 false
@@ -389,7 +490,18 @@ async def websocket_generate(websocket: WebSocket):
                 # 处理参考音频参数
                 prompt_wav_path = data.get("prompt_wav_path")
                 prompt_text = data.get("prompt_text")
+                voice_id = data.get("voice_id")
                 stream = data.get("stream", True)
+
+                if not prompt_wav_path and voice_id:
+                    preset_wav, preset_text, preset_error = resolve_voice_preset(voice_id)
+                    if preset_error:
+                        await ws_manager.send_error(websocket, preset_error)
+                        continue
+                    if preset_wav:
+                        prompt_wav_path = preset_wav
+                    if not prompt_text and preset_text:
+                        prompt_text = preset_text
 
                 # 验证参考音频文件是否存在（如果提供了的话）
                 if prompt_wav_path:
@@ -494,6 +606,7 @@ if __name__ == "__main__":
     print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/health")
     print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/models")
     print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/asr")
+    print(f"  - ws://{SERVER_HOST}:{SERVER_PORT}/ws/vad")
     print("=" * 60)
 
     uvicorn.run(
