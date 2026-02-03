@@ -339,7 +339,7 @@ async def main():
     parser.add_argument("--runs", type=int, default=1, help="Number of runs per test")
     parser.add_argument("--warmup", type=int, default=1, help="Warmup runs before statistics")
     parser.add_argument("--cfg-value", type=float, default=2.0, help="CFG value")
-    parser.add_argument("--inference-timesteps", type=int, default=25, help="Inference timesteps")
+    parser.add_argument("--inference-timesteps", type=int, default=20, help="Inference timesteps")
     parser.add_argument("--normalize", action="store_true", help="Enable text normalization")
     parser.add_argument("--denoise", action="store_true", help="Enable denoiser")
     parser.add_argument("--step-lengths", default="5,15,25", help="Comma-separated lengths for step test")

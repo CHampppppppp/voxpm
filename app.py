@@ -82,7 +82,7 @@ class VoxCPMDemo:
         prompt_wav_path_input: Optional[str] = None,
         prompt_text_input: Optional[str] = None,
         cfg_value_input: float = 2.0,
-        inference_timesteps_input: int = 25,
+        inference_timesteps_input: int = 20,
         do_normalize: bool = True,
         denoise: bool = False,
     ) -> Tuple[int, np.ndarray]:

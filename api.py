@@ -167,7 +167,7 @@ class TTSRequest(BaseModel):
     prompt_text: Optional[str] = None
     voice_id: Optional[str] = None
     cfg_value: float = 2.0
-    inference_timesteps: int = 25
+    inference_timesteps: int = 20
     normalize: bool = False
     denoise: bool = False
     seed: Optional[int] = None  # 新增: 随机种子
@@ -248,10 +248,6 @@ async def websocket_root(websocket: WebSocket):
     })
     await websocket.close()
 
-
-
-
-
 # ============ WebSocket 辅助端点 ============
 
 @app.websocket("/ws/health")
@@ -290,7 +286,7 @@ async def websocket_models(websocket: WebSocket):
     finally:
         ws_manager.disconnect(websocket)
 
-
+"""
 @app.websocket("/ws/asr")
 async def websocket_asr(websocket: WebSocket):
     await ws_manager.connect(websocket)
@@ -316,8 +312,9 @@ async def websocket_asr(websocket: WebSocket):
                 await ws_manager.send_error(websocket, f"ASR processing failed: {str(e)}")
     finally:
         ws_manager.disconnect(websocket)
+"""
 
-
+"""
 @app.websocket("/ws/vad")
 async def websocket_vad(websocket: WebSocket):
     await ws_manager.connect(websocket)
@@ -348,7 +345,7 @@ async def websocket_vad(websocket: WebSocket):
                 await ws_manager.send_error(websocket, f"VAD processing failed: {str(e)}")
     finally:
         ws_manager.disconnect(websocket)
-
+"""
 
 @app.websocket("/ws/generate")
 async def websocket_generate(websocket: WebSocket):
@@ -364,7 +361,7 @@ async def websocket_generate(websocket: WebSocket):
         "prompt_text": "参考音频对应的文本",           // 可选
         "voice_id": "voice_001",                       // 可选，音色ID自动映射参考音频
         "cfg_value": 2.0,                              // 可选，默认 2.0 (推荐)
-        "inference_timesteps": 25,                     // 可选，默认 25 (更高质量可设为 30-50)
+        "inference_timesteps": 20,                     // 可选，默认 20 (更高质量可设为 30-50)
         "normalize": false,                            // 可选，默认 false
         "denoise": false,                               // 可选，默认 false (设为 false 可保留呼吸声增加拟人感)
         "stream": true,                                // 可选，默认 true。若为 true，则分块发送 PCM 音频数据
@@ -442,7 +439,7 @@ async def websocket_generate(websocket: WebSocket):
                         prompt_wav_path=prompt_wav_path,
                         prompt_text=prompt_text,
                         cfg_value=data.get("cfg_value", 2.0),
-                        inference_timesteps=data.get("inference_timesteps", 25),
+                        inference_timesteps=data.get("inference_timesteps", 20),
                         normalize=data.get("normalize", False),
                         denoise=data.get("denoise", False),
                         show_progress=False,
@@ -470,7 +467,7 @@ async def websocket_generate(websocket: WebSocket):
                         prompt_wav_path=prompt_wav_path,
                         prompt_text=prompt_text,
                         cfg_value=data.get("cfg_value", 2.0),
-                        inference_timesteps=data.get("inference_timesteps", 25),
+                        inference_timesteps=data.get("inference_timesteps", 20),
                         normalize=data.get("normalize", False),
                         denoise=data.get("denoise", False),
                     )
